@@ -12,6 +12,7 @@ import com.example.MainActivity
 import com.example.data.local.database.WaterDatabase
 import com.example.data.local.datastore.dataStore
 import com.example.data.repository.WaterRepositoryImpl
+import com.example.health.HealthConnectManager
 import com.example.receiver.WaterReminderReceiver
 import kotlinx.coroutines.flow.first
 
@@ -23,7 +24,7 @@ class AdaptiveQuantityWorker(
     override suspend fun doWork(): Result {
         val db = WaterDatabase.getInstance(appContext)
         val dataStore = appContext.dataStore
-        val repository = WaterRepositoryImpl(db.waterDao(), dataStore)
+        val repository = WaterRepositoryImpl(db.waterDao(), dataStore, appContext, HealthConnectManager(appContext))
 
         // Check if manualOverrideActive is true. If it is, abort the worker.
         val isManualOverrideActive = repository.getManualOverrideActiveFlow().first()

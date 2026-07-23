@@ -9,6 +9,7 @@ import androidx.work.WorkerParameters
 import com.example.alarm.WaterAlarmScheduler
 import com.example.data.local.database.WaterDatabase
 import com.example.data.repository.WaterRepositoryImpl
+import com.example.health.HealthConnectManager
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -26,7 +27,7 @@ class AutoCheckoutWorker(
 
     override suspend fun doWork(): Result {
         val db = WaterDatabase.getInstance(applicationContext)
-        val repository = WaterRepositoryImpl(db.waterDao(), null, applicationContext)
+        val repository = WaterRepositoryImpl(db.waterDao(), null, applicationContext, HealthConnectManager(applicationContext))
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         val todayStr = dateFormat.format(Calendar.getInstance().time)

@@ -15,6 +15,7 @@ import com.example.data.local.database.WaterDatabase
 import com.example.data.local.entity.LogSource
 import com.example.data.local.entity.ReminderResponse
 import com.example.data.repository.WaterRepositoryImpl
+import com.example.health.HealthConnectManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -138,7 +139,7 @@ class WaterReminderReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val db = WaterDatabase.getInstance(context)
-                val repository = WaterRepositoryImpl(db.waterDao(), null, context)
+                val repository = WaterRepositoryImpl(db.waterDao(), null, context, HealthConnectManager(context))
                 val event = db.waterDao().getReminderEventById(reminderId)
 
                 if (event != null) {
@@ -183,7 +184,7 @@ class WaterReminderReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val db = WaterDatabase.getInstance(context)
-                val repository = WaterRepositoryImpl(db.waterDao(), null, context)
+                val repository = WaterRepositoryImpl(db.waterDao(), null, context, HealthConnectManager(context))
                 val event = db.waterDao().getReminderEventById(reminderId)
 
                 if (event != null) {

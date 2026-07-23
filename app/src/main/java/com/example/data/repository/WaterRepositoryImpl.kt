@@ -19,25 +19,25 @@ import com.example.health.HealthConnectManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import javax.inject.Inject
 import kotlin.math.abs
-import javax.inject.Singleton
 
 /**
  * Implementation of [WaterRepository] encapsulating domain formulas and Room DAO interactions.
  */
-@Singleton
-class WaterRepositoryImpl @Inject constructor(
+class WaterRepositoryImpl(
     private val waterDao: WaterDao,
     private val dataStore: DataStore<Preferences>? = null,
     private val context: Context? = null,
-    private val healthConnectManager: HealthConnectManager? = null
+    private val healthConnectManager: HealthConnectManager
 ) : WaterRepository {
 
     override fun getUserProfileFlow(): Flow<UserProfile?> =
@@ -142,6 +142,15 @@ class WaterRepositoryImpl @Inject constructor(
         )
 
         val generatedId = waterDao.insertDayRecord(newRecord)
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                syncDailyExternalHydration()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        
         return newRecord.copy(id = generatedId)
     }
 

@@ -15,6 +15,7 @@ import com.example.data.local.entity.UserProfile
 import com.example.data.local.entity.WaterLogEntry
 import com.example.data.repository.WaterRepository
 import com.example.data.repository.WaterRepositoryImpl
+import com.example.health.HealthConnectManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +31,7 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = WaterDatabase.getInstance(application)
     private val dataStore = application.dataStore
-    private val repository: WaterRepository = WaterRepositoryImpl(db.waterDao(), dataStore, application)
+    private val repository: WaterRepository = WaterRepositoryImpl(db.waterDao(), dataStore, application, HealthConnectManager(application))
     private val alarmScheduler = WaterAlarmScheduler(application)
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())

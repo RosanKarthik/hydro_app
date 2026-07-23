@@ -8,14 +8,10 @@ import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Volume
 import com.example.data.local.entity.WaterLogEntry
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class HealthConnectManager @Inject constructor(
-    @ApplicationContext private val context: Context
+class HealthConnectManager(
+    private val context: Context
 ) {
 
     // Health Connect client, created lazily
