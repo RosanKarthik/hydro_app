@@ -53,18 +53,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.ActivityLevel
 import com.example.data.local.entity.Climate
-import com.example.data.local.entity.Gender
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OnboardingScreen(
     onCalculateTarget: (weightKg: Float, activityLevel: ActivityLevel, climate: Climate) -> Int,
-    onSaveProfile: (heightCm: Float, weightKg: Float, gender: Gender, activityLevel: ActivityLevel, climate: Climate) -> Unit,
+    onSaveProfile: (heightCm: Float, weightKg: Float, activityLevel: ActivityLevel, climate: Climate) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var heightInput by remember { mutableStateOf("175") }
     var weightInput by remember { mutableStateOf("70") }
-    var selectedGender by remember { mutableStateOf(Gender.MALE) }
     var selectedActivity by remember { mutableStateOf(ActivityLevel.MODERATE) }
     var selectedClimate by remember { mutableStateOf(Climate.TEMPERATE) }
 
@@ -194,30 +192,6 @@ fun OnboardingScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Gender Selection
-            Text(
-                text = "Gender Profile",
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
-            )
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Gender.entries.forEach { gender ->
-                    SelectableChip(
-                        selected = selectedGender == gender,
-                        label = gender.name.lowercase().replaceFirstChar { it.uppercase() },
-                        onClick = { selectedGender = gender }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
             // Activity Level Selection
             Text(
                 text = "Daily Activity Level",
@@ -278,7 +252,7 @@ fun OnboardingScreen(
             // Submit Button
             Button(
                 onClick = {
-                    onSaveProfile(heightCm, weightKg, selectedGender, selectedActivity, selectedClimate)
+                    onSaveProfile(heightCm, weightKg, selectedActivity, selectedClimate)
                 },
                 modifier = Modifier
                     .fillMaxWidth()

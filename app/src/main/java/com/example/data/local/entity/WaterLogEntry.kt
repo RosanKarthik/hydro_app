@@ -8,7 +8,8 @@ import androidx.room.PrimaryKey
 enum class LogSource {
     REMINDER_TAP_DONE,
     MANUAL_APP_OPEN,
-    MANUAL_NOTIFICATION_TAP
+    MANUAL_NOTIFICATION_TAP,
+    EXTERNAL_HEALTH_CONNECT
 }
 
 /**
@@ -42,5 +43,6 @@ data class WaterLogEntry(
     val timestamp: Long = System.currentTimeMillis(),
     val amountMl: Int,
     val source: LogSource,
-    val reminderEventId: Long? = null
+    val reminderEventId: Long? = null,
+    val externalRecordId: String? = null
 )

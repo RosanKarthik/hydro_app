@@ -73,7 +73,7 @@ interface WaterDao {
             CAST(SUM(CASE WHEN source IN ('MANUAL_APP_OPEN', 'MANUAL_NOTIFICATION_TAP') THEN 1 ELSE 0 END) AS REAL) / 
             COUNT(id) 
         FROM water_log_entry 
-        WHERE timestamp >= :sinceEpoch AND amountMl > 0
+        WHERE timestamp >= :sinceEpoch AND amountMl > 0 AND source != 'EXTERNAL_HEALTH_CONNECT'
     """)
     suspend fun getManualLogRatioSince(sinceEpoch: Long): Float?
 
@@ -86,6 +86,9 @@ interface WaterDao {
 
     @Query("SELECT * FROM water_log_entry WHERE dayRecordId = :dayRecordId ORDER BY timestamp DESC")
     fun getWaterLogsForDayFlow(dayRecordId: Long): Flow<List<WaterLogEntry>>
+
+    @Query("SELECT externalRecordId FROM water_log_entry WHERE externalRecordId IN (:ids) AND externalRecordId IS NOT NULL")
+    suspend fun getExistingExternalRecordIds(ids: List<String>): List<String>
 
     @Query("SELECT * FROM water_log_entry WHERE dayRecordId = :dayRecordId ORDER BY timestamp DESC")
     suspend fun getWaterLogsForDay(dayRecordId: Long): List<WaterLogEntry>

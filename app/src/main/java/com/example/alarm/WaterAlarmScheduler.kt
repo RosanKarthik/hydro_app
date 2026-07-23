@@ -31,7 +31,34 @@ class WaterAlarmScheduler(private val context: Context) {
         // On Android 12+ (API 31+), check exact alarm permission if required
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (!alarmManager.canScheduleExactAlarms()) {
-                // Fallback or exact alarm permission prompt can be triggered in UI
+                // Fallback to inexact alarm using setAndAllowWhileIdle() as a safety net
+                val intent = Intent(context, WaterReminderReceiver::class.java).apply {
+                    action = WaterReminderReceiver.ACTION_REMINDER_ALARM
+                    putExtra(WaterReminderReceiver.EXTRA_REMINDER_ID, reminderEventId)
+                    putExtra(WaterReminderReceiver.EXTRA_DEFAULT_ML, defaultMl)
+                }
+                
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    (reminderEventId % Int.MAX_VALUE).toInt(),
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        scheduledTimeEpoch,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.set(
+                        AlarmManager.RTC_WAKEUP,
+                        scheduledTimeEpoch,
+                        pendingIntent
+                    )
+                }
+                return
             }
         }
 
@@ -43,7 +70,7 @@ class WaterAlarmScheduler(private val context: Context) {
 
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            reminderEventId.toInt(),
+            (reminderEventId % Int.MAX_VALUE).toInt(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -72,7 +99,7 @@ class WaterAlarmScheduler(private val context: Context) {
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            reminderEventId.toInt(),
+            (reminderEventId % Int.MAX_VALUE).toInt(),
             intent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         )

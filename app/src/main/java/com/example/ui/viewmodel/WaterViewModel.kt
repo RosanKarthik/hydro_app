@@ -9,7 +9,6 @@ import com.example.data.local.datastore.dataStore
 import com.example.data.local.entity.ActivityLevel
 import com.example.data.local.entity.Climate
 import com.example.data.local.entity.DayRecord
-import com.example.data.local.entity.Gender
 import com.example.data.local.entity.LogSource
 import com.example.data.local.entity.ReminderEvent
 import com.example.data.local.entity.UserProfile
@@ -31,7 +30,7 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = WaterDatabase.getInstance(application)
     private val dataStore = application.dataStore
-    private val repository: WaterRepository = WaterRepositoryImpl(db.waterDao(), dataStore)
+    private val repository: WaterRepository = WaterRepositoryImpl(db.waterDao(), dataStore, application)
     private val alarmScheduler = WaterAlarmScheduler(application)
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -99,6 +98,13 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
             initialValue = "23:59"
         )
 
+    val healthConnectSyncEnabled: StateFlow<Boolean> = repository.getHealthConnectSyncEnabledFlow()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
     fun calculateBaseTargetMl(weightKg: Float, activityLevel: ActivityLevel, climate: Climate): Int {
         return repository.calculateBaseTargetMl(weightKg, activityLevel, climate)
     }
@@ -106,13 +112,12 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
     fun saveUserProfile(
         heightCm: Float,
         weightKg: Float,
-        gender: Gender,
         activityLevel: ActivityLevel,
         climate: Climate,
         onComplete: () -> Unit = {}
     ) {
         viewModelScope.launch {
-            repository.saveUserProfile(heightCm, weightKg, gender, activityLevel, climate)
+            repository.saveUserProfile(heightCm, weightKg, activityLevel, climate)
             onComplete()
         }
     }
@@ -179,6 +184,12 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setHealthConnectSyncEnabled(isEnabled: Boolean) {
+        viewModelScope.launch {
+            repository.setHealthConnectSyncEnabled(isEnabled)
+        }
+    }
+
     fun updateFallbackCheckoutTime(timeString: String) {
         viewModelScope.launch {
             repository.setFallbackCheckoutTime(timeString)
@@ -206,7 +217,7 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
             estCheckoutEpoch = now + (2 * 60 * 60 * 1000) // Fallback +2 hrs
         }
 
-        val timestamps = repository.recalculateEvenSpacedReminders(
+        val scheduledReminders = repository.recalculateEvenSpacedReminders(
             dayRecordId = dayRecordId,
             currentTimeEpoch = now,
             estimatedCheckoutEpoch = estCheckoutEpoch,
@@ -214,10 +225,10 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
         )
 
         // Schedule exact alarms via AlarmManager
-        timestamps.forEachIndexed { index, timestamp ->
+        scheduledReminders.forEach { reminder ->
             alarmScheduler.scheduleExactAlarm(
-                reminderEventId = System.currentTimeMillis() + index,
-                scheduledTimeEpoch = timestamp,
+                reminderEventId = reminder.id,
+                scheduledTimeEpoch = reminder.timestamp,
                 defaultMl = 250
             )
         }

@@ -3,13 +3,6 @@ package com.example.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-enum class Gender {
-    MALE,
-    FEMALE,
-    OTHER,
-    PREFER_NOT_TO_SAY
-}
-
 enum class ActivityLevel {
     SEDENTARY,
     LIGHT,
@@ -33,7 +26,6 @@ data class UserProfile(
     val id: Long = 1L,
     val heightCm: Float,
     val weightKg: Float,
-    val gender: Gender,
     val activityLevel: ActivityLevel,
     val climate: Climate = Climate.TEMPERATE,
     val baseTargetMl: Int,

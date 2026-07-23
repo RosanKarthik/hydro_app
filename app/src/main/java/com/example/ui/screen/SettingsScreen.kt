@@ -2,6 +2,8 @@ package com.example.ui.screen
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,6 +49,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.data.local.entity.UserProfile
 import com.example.util.BatteryOptimizationHelper
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.HydrationRecord
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,13 +60,35 @@ fun SettingsScreen(
     userProfile: UserProfile?,
     manualOverrideActive: Boolean,
     fallbackCheckoutTime: String,
+    healthConnectSyncEnabled: Boolean,
     onUpdateTarget: (newTargetMl: Int) -> Unit,
     onEditProfile: () -> Unit,
     onSetManualOverrideActive: (Boolean) -> Unit,
     onUpdateFallbackCheckoutTime: (String) -> Unit,
+    onSetHealthConnectSyncEnabled: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    
+    val healthConnectAvailable = remember {
+        HealthConnectClient.getSdkStatus(context)
+    }
+
+    val permissions = setOf(
+        HealthPermission.getReadPermission(HydrationRecord::class),
+        HealthPermission.getWritePermission(HydrationRecord::class)
+    )
+
+    val requestPermissionActivityContract = PermissionController.createRequestPermissionResultContract()
+
+    val requestPermissionsLauncher = rememberLauncherForActivityResult(requestPermissionActivityContract) { granted ->
+        if (granted.containsAll(permissions)) {
+            onSetHealthConnectSyncEnabled(true)
+        } else {
+            onSetHealthConnectSyncEnabled(false)
+        }
+    }
+
     var customTargetInput by remember(userProfile) {
         mutableStateOf((userProfile?.adaptiveTargetMl ?: 2500).toString())
     }
@@ -272,6 +300,71 @@ fun SettingsScreen(
                             modifier = Modifier.height(56.dp)
                         ) {
                             Text("Save")
+                        }
+                    }
+                }
+            }
+            
+            // Health Connect Card
+            if (healthConnectAvailable != HealthConnectClient.SDK_UNAVAILABLE) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "Sync with Health Connect",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        if (healthConnectAvailable == HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED) {
+                            Text(
+                                text = "Health Connect requires an update to function. Please update it in the Play Store.",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                            Button(
+                                onClick = {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata"))
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(intent)
+                                }
+                            ) {
+                                Text("Update Health Connect")
+                            }
+                        } else {
+                            Text(
+                                text = "Share water you log here with other health apps, and pull in water logged elsewhere. Data stays on your device via Android's Health Connect — nothing is sent to our servers (there are no servers). Manage this anytime in the Health Connect app.",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Enable Sync",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Switch(
+                                    checked = healthConnectSyncEnabled,
+                                    onCheckedChange = { isEnabled ->
+                                        if (isEnabled) {
+                                            requestPermissionsLauncher.launch(permissions)
+                                        } else {
+                                            onSetHealthConnectSyncEnabled(false)
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }

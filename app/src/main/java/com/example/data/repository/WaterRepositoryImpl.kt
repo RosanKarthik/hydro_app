@@ -1,22 +1,30 @@
 package com.example.data.repository
 
+import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import com.example.alarm.WaterAlarmScheduler
 import com.example.data.local.datastore.PreferencesKeys
 import com.example.data.local.dao.WaterDao
 import com.example.data.local.entity.ActivityLevel
 import com.example.data.local.entity.Climate
 import com.example.data.local.entity.DayRecord
-import com.example.data.local.entity.Gender
 import com.example.data.local.entity.LogSource
 import com.example.data.local.entity.ReminderEvent
 import com.example.data.local.entity.ReminderResponse
 import com.example.data.local.entity.UserProfile
 import com.example.data.local.entity.WaterLogEntry
+import com.example.health.HealthConnectManager
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.abs
 import javax.inject.Singleton
@@ -27,7 +35,9 @@ import javax.inject.Singleton
 @Singleton
 class WaterRepositoryImpl @Inject constructor(
     private val waterDao: WaterDao,
-    private val dataStore: DataStore<Preferences>? = null
+    private val dataStore: DataStore<Preferences>? = null,
+    private val context: Context? = null,
+    private val healthConnectManager: HealthConnectManager? = null
 ) : WaterRepository {
 
     override fun getUserProfileFlow(): Flow<UserProfile?> =
@@ -67,7 +77,6 @@ class WaterRepositoryImpl @Inject constructor(
     override suspend fun saveUserProfile(
         heightCm: Float,
         weightKg: Float,
-        gender: Gender,
         activityLevel: ActivityLevel,
         climate: Climate
     ): UserProfile {
@@ -78,7 +87,6 @@ class WaterRepositoryImpl @Inject constructor(
             id = 1L,
             heightCm = heightCm,
             weightKg = weightKg,
-            gender = gender,
             activityLevel = activityLevel,
             climate = climate,
             baseTargetMl = baseTarget,
@@ -186,6 +194,15 @@ class WaterRepositoryImpl @Inject constructor(
                 respondedAt = System.currentTimeMillis()
             )
         }
+        
+        try {
+            val syncEnabled = getHealthConnectSyncEnabledFlow().first()
+            if (syncEnabled) {
+                healthConnectManager?.syncToHealthConnect(entry)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         return entry
     }
@@ -216,13 +233,18 @@ class WaterRepositoryImpl @Inject constructor(
         currentTimeEpoch: Long,
         estimatedCheckoutEpoch: Long,
         averageDesiredGapMin: Int
-    ): List<Long> {
+    ): List<ScheduledReminder> {
         val dayRecord = waterDao.getDayRecordById(dayRecordId) ?: return emptyList()
 
         val remainingMl = dayRecord.targetMlForDay - dayRecord.totalConsumedMl
         val remainingTimeMin = (estimatedCheckoutEpoch - currentTimeEpoch) / (1000 * 60)
 
         // Cancel existing pending reminders before rescheduling
+        if (context != null) {
+            val scheduler = WaterAlarmScheduler(context)
+            val pending = waterDao.getPendingReminderEvents(dayRecordId)
+            pending.forEach { scheduler.cancelAlarm(it.id) }
+        }
         waterDao.cancelPendingRemindersForDay(dayRecordId)
 
         // If goal is reached or less than 15 minutes remaining, no new reminders needed
@@ -255,15 +277,15 @@ class WaterRepositoryImpl @Inject constructor(
             estimatedCheckoutEpoch = estimatedCheckoutEpoch
         )
 
-        val finalScheduledTimestamps = mutableListOf<Long>()
+        val finalScheduledTimestamps = mutableListOf<ScheduledReminder>()
         for (fireTime in adjustedTimestamps) {
             val reminderEvent = ReminderEvent(
                 dayRecordId = dayRecordId,
                 scheduledTime = fireTime,
                 userResponse = ReminderResponse.PENDING
             )
-            waterDao.insertReminderEvent(reminderEvent)
-            finalScheduledTimestamps.add(fireTime)
+            val id = waterDao.insertReminderEvent(reminderEvent)
+            finalScheduledTimestamps.add(ScheduledReminder(id, fireTime))
         }
 
         return finalScheduledTimestamps
@@ -382,6 +404,62 @@ class WaterRepositoryImpl @Inject constructor(
     override suspend fun setFallbackCheckoutTime(time: String) {
         dataStore?.edit { preferences ->
             preferences[PreferencesKeys.FALLBACK_CHECKOUT_TIME] = time
+        }
+    }
+
+    override fun getHealthConnectSyncEnabledFlow(): Flow<Boolean> {
+        val flow = dataStore?.data
+        return if (flow != null) {
+            flow.map { preferences ->
+                preferences[PreferencesKeys.HEALTH_CONNECT_SYNC_ENABLED] ?: false
+            }
+        } else {
+            kotlinx.coroutines.flow.flowOf(false)
+        }
+    }
+
+    override suspend fun setHealthConnectSyncEnabled(isEnabled: Boolean) {
+        dataStore?.edit { preferences ->
+            preferences[PreferencesKeys.HEALTH_CONNECT_SYNC_ENABLED] = isEnabled
+        }
+    }
+
+    override suspend fun syncDailyExternalHydration() {
+        val syncEnabled = getHealthConnectSyncEnabledFlow().first()
+        if (!syncEnabled || healthConnectManager == null) return
+
+        val until = Instant.now()
+        val since = until.minus(48, ChronoUnit.HOURS)
+
+        val externalRecords = healthConnectManager.pullExternalHydration(since, until)
+        if (externalRecords.isEmpty()) return
+
+        val allExternalIds = externalRecords.map { it.metadata.id }
+        if (allExternalIds.isEmpty()) return
+
+        val existingIds = waterDao.getExistingExternalRecordIds(allExternalIds).toSet()
+        val newRecords = externalRecords.filter { it.metadata.id !in existingIds }
+
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+        for (record in newRecords) {
+            val amountMl = record.volume?.inMilliliters?.toInt() ?: continue
+            val timestamp = record.startTime.toEpochMilli()
+            val dateString = sdf.format(Date(timestamp))
+
+            var dayRecord = waterDao.getDayRecordByDate(dateString)
+            if (dayRecord == null) {
+                dayRecord = checkInToday(dateString, timestamp)
+            }
+
+            val entry = WaterLogEntry(
+                dayRecordId = dayRecord.id,
+                timestamp = timestamp,
+                amountMl = amountMl,
+                source = LogSource.EXTERNAL_HEALTH_CONNECT,
+                externalRecordId = record.metadata.id
+            )
+            waterDao.logWaterAndIncrementTotal(entry)
         }
     }
 }

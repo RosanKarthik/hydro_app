@@ -101,6 +101,7 @@ class MainActivity : ComponentActivity() {
                 val recentHistory by viewModel.recentHistory.collectAsState()
                 val manualOverrideActive by viewModel.manualOverrideActive.collectAsState()
                 val fallbackCheckoutTime by viewModel.fallbackCheckoutTime.collectAsState()
+                val healthConnectSyncEnabled by viewModel.healthConnectSyncEnabled.collectAsState()
 
                 var currentTab by remember { mutableStateOf(MainTab.TODAY) }
                 var showEditingProfileOnboarding by remember { mutableStateOf(false) }
@@ -128,8 +129,8 @@ class MainActivity : ComponentActivity() {
                         onCalculateTarget = { weight, activity, climate ->
                             viewModel.calculateBaseTargetMl(weight, activity, climate)
                         },
-                        onSaveProfile = { height, weight, gender, activity, climate ->
-                            viewModel.saveUserProfile(height, weight, gender, activity, climate) {
+                        onSaveProfile = { height, weight, activity, climate ->
+                            viewModel.saveUserProfile(height, weight, activity, climate) {
                                 showEditingProfileOnboarding = false
                             }
                         }
@@ -207,6 +208,7 @@ class MainActivity : ComponentActivity() {
                                     userProfile = userProfile,
                                     manualOverrideActive = manualOverrideActive,
                                     fallbackCheckoutTime = fallbackCheckoutTime,
+                                    healthConnectSyncEnabled = healthConnectSyncEnabled,
                                     onUpdateTarget = { newTargetMl ->
                                         viewModel.updateAdaptiveTarget(newTargetMl)
                                     },
@@ -218,6 +220,9 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onUpdateFallbackCheckoutTime = { timeString ->
                                         viewModel.updateFallbackCheckoutTime(timeString)
+                                    },
+                                    onSetHealthConnectSyncEnabled = { isEnabled ->
+                                        viewModel.setHealthConnectSyncEnabled(isEnabled)
                                     }
                                 )
                             }

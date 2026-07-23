@@ -14,4 +14,5 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "us
 object PreferencesKeys {
     val MANUAL_OVERRIDE_ACTIVE = booleanPreferencesKey("manual_override_active")
     val FALLBACK_CHECKOUT_TIME = androidx.datastore.preferences.core.stringPreferencesKey("fallback_checkout_time")
+    val HEALTH_CONNECT_SYNC_ENABLED = booleanPreferencesKey("health_connect_sync_enabled")
 }

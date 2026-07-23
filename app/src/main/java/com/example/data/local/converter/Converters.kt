@@ -3,7 +3,6 @@ package com.example.data.local.converter
 import androidx.room.TypeConverter
 import com.example.data.local.entity.ActivityLevel
 import com.example.data.local.entity.Climate
-import com.example.data.local.entity.Gender
 import com.example.data.local.entity.LogSource
 import com.example.data.local.entity.ReminderResponse
 
@@ -11,12 +10,6 @@ import com.example.data.local.entity.ReminderResponse
  * Room TypeConverters for custom Enums and Date/Time mapping.
  */
 class Converters {
-
-    @TypeConverter
-    fun fromGender(value: Gender?): String? = value?.name
-
-    @TypeConverter
-    fun toGender(value: String?): Gender? = value?.let { enumValueOf<Gender>(it) }
 
     @TypeConverter
     fun fromActivityLevel(value: ActivityLevel?): String? = value?.name

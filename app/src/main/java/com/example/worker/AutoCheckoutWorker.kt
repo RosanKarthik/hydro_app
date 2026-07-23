@@ -26,7 +26,7 @@ class AutoCheckoutWorker(
 
     override suspend fun doWork(): Result {
         val db = WaterDatabase.getInstance(applicationContext)
-        val repository = WaterRepositoryImpl(db.waterDao())
+        val repository = WaterRepositoryImpl(db.waterDao(), null, applicationContext)
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         val todayStr = dateFormat.format(Calendar.getInstance().time)
@@ -34,17 +34,18 @@ class AutoCheckoutWorker(
         val activeDay = repository.getTodayRecord(todayStr)
 
         if (activeDay != null && activeDay.checkOutTime == null) {
+            // Cancel any pending alarms for the day FIRST
+            val scheduler = WaterAlarmScheduler(applicationContext)
+            val pendingReminders = db.waterDao().getPendingReminderEvents(activeDay.id)
+            scheduler.cancelAllPendingAlarms(pendingReminders.map { it.id })
+            
+            // Then checkout (which clears database)
             val now = System.currentTimeMillis()
             repository.checkOutToday(
                 dayRecordId = activeDay.id,
                 checkOutTimeEpoch = now,
                 autoCheckedOut = true
             )
-
-            // Cancel any pending alarms for the day
-            val scheduler = WaterAlarmScheduler(applicationContext)
-            val pendingReminders = db.waterDao().getPendingReminderEvents(activeDay.id)
-            scheduler.cancelAllPendingAlarms(pendingReminders.map { it.id })
         }
 
         return Result.success()

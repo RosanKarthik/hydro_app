@@ -138,7 +138,7 @@ class WaterReminderReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val db = WaterDatabase.getInstance(context)
-                val repository = WaterRepositoryImpl(db.waterDao())
+                val repository = WaterRepositoryImpl(db.waterDao(), null, context)
                 val event = db.waterDao().getReminderEventById(reminderId)
 
                 if (event != null) {
@@ -152,7 +152,7 @@ class WaterReminderReceiver : BroadcastReceiver() {
                     // Perform even-spacing recalculation
                     val now = System.currentTimeMillis()
                     val estimatedCheckout = now + (4 * 60 * 60 * 1000) // Default 4 hours or end of day
-                    val newTimestamps = repository.recalculateEvenSpacedReminders(
+                    val scheduledReminders = repository.recalculateEvenSpacedReminders(
                         dayRecordId = event.dayRecordId,
                         currentTimeEpoch = now,
                         estimatedCheckoutEpoch = estimatedCheckout
@@ -160,10 +160,10 @@ class WaterReminderReceiver : BroadcastReceiver() {
 
                     // Reschedule alarms
                     val scheduler = WaterAlarmScheduler(context)
-                    newTimestamps.forEachIndexed { index, timestamp ->
+                    scheduledReminders.forEach { reminder ->
                         scheduler.scheduleExactAlarm(
-                            reminderEventId = System.currentTimeMillis() + index,
-                            scheduledTimeEpoch = timestamp
+                            reminderEventId = reminder.id,
+                            scheduledTimeEpoch = reminder.timestamp
                         )
                     }
                 }
@@ -183,7 +183,7 @@ class WaterReminderReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val db = WaterDatabase.getInstance(context)
-                val repository = WaterRepositoryImpl(db.waterDao())
+                val repository = WaterRepositoryImpl(db.waterDao(), null, context)
                 val event = db.waterDao().getReminderEventById(reminderId)
 
                 if (event != null) {
@@ -192,17 +192,17 @@ class WaterReminderReceiver : BroadcastReceiver() {
                     // Recalculate remaining schedule
                     val now = System.currentTimeMillis()
                     val estimatedCheckout = now + (4 * 60 * 60 * 1000)
-                    val newTimestamps = repository.recalculateEvenSpacedReminders(
+                    val scheduledReminders = repository.recalculateEvenSpacedReminders(
                         dayRecordId = event.dayRecordId,
                         currentTimeEpoch = now,
                         estimatedCheckoutEpoch = estimatedCheckout
                     )
 
                     val scheduler = WaterAlarmScheduler(context)
-                    newTimestamps.forEachIndexed { index, timestamp ->
+                    scheduledReminders.forEach { reminder ->
                         scheduler.scheduleExactAlarm(
-                            reminderEventId = System.currentTimeMillis() + index,
-                            scheduledTimeEpoch = timestamp
+                            reminderEventId = reminder.id,
+                            scheduledTimeEpoch = reminder.timestamp
                         )
                     }
                 }

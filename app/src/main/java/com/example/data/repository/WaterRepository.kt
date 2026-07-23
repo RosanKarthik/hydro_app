@@ -3,13 +3,14 @@ package com.example.data.repository
 import com.example.data.local.entity.ActivityLevel
 import com.example.data.local.entity.Climate
 import com.example.data.local.entity.DayRecord
-import com.example.data.local.entity.Gender
 import com.example.data.local.entity.LogSource
 import com.example.data.local.entity.ReminderEvent
 import com.example.data.local.entity.ReminderResponse
 import com.example.data.local.entity.UserProfile
 import com.example.data.local.entity.WaterLogEntry
 import kotlinx.coroutines.flow.Flow
+
+data class ScheduledReminder(val id: Long, val timestamp: Long)
 
 /**
  * Repository interface for managing Water Reminder application data and domain rules.
@@ -22,7 +23,6 @@ interface WaterRepository {
     suspend fun saveUserProfile(
         heightCm: Float,
         weightKg: Float,
-        gender: Gender,
         activityLevel: ActivityLevel,
         climate: Climate
     ): UserProfile
@@ -74,14 +74,14 @@ interface WaterRepository {
      * Recalculates and schedules dynamically spaced reminder timestamps for remaining target water intake.
      * Implements Section 5.3 of technical architecture spec.
      *
-     * @return List of timestamp long values (epoch millis) for when reminders should be scheduled.
+     * @return List of ScheduledReminder objects containing the new database IDs and timestamps.
      */
     suspend fun recalculateEvenSpacedReminders(
         dayRecordId: Long,
         currentTimeEpoch: Long = System.currentTimeMillis(),
         estimatedCheckoutEpoch: Long,
         averageDesiredGapMin: Int = 75
-    ): List<Long>
+    ): List<ScheduledReminder>
 
     // Preferences
     fun getManualOverrideActiveFlow(): Flow<Boolean>
@@ -89,4 +89,8 @@ interface WaterRepository {
     
     fun getFallbackCheckoutTimeFlow(): Flow<String>
     suspend fun setFallbackCheckoutTime(time: String)
+    
+    fun getHealthConnectSyncEnabledFlow(): Flow<Boolean>
+    suspend fun setHealthConnectSyncEnabled(isEnabled: Boolean)
+    suspend fun syncDailyExternalHydration()
 }
