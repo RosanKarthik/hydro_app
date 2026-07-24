@@ -167,6 +167,13 @@ class WaterRepositoryImpl(
             autoCheckedOut = autoCheckedOut
         )
         waterDao.updateDayRecord(updated)
+        
+        if (context != null) {
+            val scheduler = WaterAlarmScheduler(context)
+            val pendingReminders = waterDao.getPendingReminderEvents(dayRecordId)
+            scheduler.cancelAllPendingAlarms(pendingReminders.map { it.id })
+        }
+        
         waterDao.cancelPendingRemindersForDay(dayRecordId)
         return updated
     }

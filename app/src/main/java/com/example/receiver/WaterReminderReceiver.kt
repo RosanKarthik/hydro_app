@@ -44,87 +44,94 @@ class WaterReminderReceiver : BroadcastReceiver() {
     }
 
     private fun showReminderNotification(context: Context, reminderId: Long) {
-        val notificationManager = NotificationManagerCompat.from(context)
-        createNotificationChannel(context)
+        if (reminderId == -1L) return
 
-        // Notification content tap intent -> open MainActivity
-        val appIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(EXTRA_OPEN_QUICK_LOG, true)
-            putExtra(EXTRA_REMINDER_ID, reminderId)
-        }
-
-        val contentPendingIntent = PendingIntent.getActivity(
-            context,
-            reminderId.toInt(),
-            appIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // Quick Action 1: Done
-        val doneIntent = Intent(context, WaterReminderReceiver::class.java).apply {
-            action = ACTION_DONE
-            putExtra(EXTRA_REMINDER_ID, reminderId)
-            putExtra(EXTRA_DEFAULT_ML, 250)
-        }
-        val donePendingIntent = PendingIntent.getBroadcast(
-            context,
-            (reminderId * 10 + 1).toInt(),
-            doneIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // Quick Action 2: Not Done
-        val notDoneIntent = Intent(context, WaterReminderReceiver::class.java).apply {
-            action = ACTION_NOT_DONE
-            putExtra(EXTRA_REMINDER_ID, reminderId)
-        }
-        val notDonePendingIntent = PendingIntent.getBroadcast(
-            context,
-            (reminderId * 10 + 2).toInt(),
-            notDoneIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_compass) // fallback system icon
-            .setContentTitle("Hydration Check")
-            .setContentText("Time for a sip! Drink 250ml of water to stay on track.")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setContentIntent(contentPendingIntent)
-            .addAction(
-                android.R.drawable.checkbox_on_background,
-                "Done (250ml)",
-                donePendingIntent
-            )
-            .addAction(
-                android.R.drawable.ic_delete,
-                "Not Done",
-                notDonePendingIntent
-            )
-            .build()
-
-        try {
-            notificationManager.notify(reminderId.toInt(), notification)
-        } catch (e: SecurityException) {
-            // Notification permission missing
-        }
-
-        // Record firedTime in database
-        if (reminderId != -1L) {
-            val pendingResult = goAsync()
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val db = WaterDatabase.getInstance(context)
-                    val dao = db.waterDao()
-                    val event = dao.getReminderEventById(reminderId)
-                    if (event != null) {
-                        dao.updateReminderEvent(event.copy(firedTime = System.currentTimeMillis()))
-                    }
-                } finally {
-                    pendingResult.finish()
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val db = WaterDatabase.getInstance(context)
+                val dao = db.waterDao()
+                
+                val event = dao.getReminderEventById(reminderId)
+                if (event == null || event.userResponse != ReminderResponse.PENDING) {
+                    return@launch
                 }
+                
+                val dayRecord = dao.getDayRecordById(event.dayRecordId)
+                if (dayRecord == null || dayRecord.checkOutTime != null) {
+                    return@launch
+                }
+
+                val notificationManager = NotificationManagerCompat.from(context)
+                createNotificationChannel(context)
+
+                // Notification content tap intent -> open MainActivity
+                val appIntent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra(EXTRA_OPEN_QUICK_LOG, true)
+                    putExtra(EXTRA_REMINDER_ID, reminderId)
+                }
+
+                val contentPendingIntent = PendingIntent.getActivity(
+                    context,
+                    reminderId.toInt(),
+                    appIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // Quick Action 1: Done
+                val doneIntent = Intent(context, WaterReminderReceiver::class.java).apply {
+                    action = ACTION_DONE
+                    putExtra(EXTRA_REMINDER_ID, reminderId)
+                    putExtra(EXTRA_DEFAULT_ML, 250)
+                }
+                val donePendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    (reminderId * 10 + 1).toInt(),
+                    doneIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // Quick Action 2: Not Done
+                val notDoneIntent = Intent(context, WaterReminderReceiver::class.java).apply {
+                    action = ACTION_NOT_DONE
+                    putExtra(EXTRA_REMINDER_ID, reminderId)
+                }
+                val notDonePendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    (reminderId * 10 + 2).toInt(),
+                    notDoneIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.ic_menu_compass) // fallback system icon
+                    .setContentTitle("Hydration Check")
+                    .setContentText("Time for a sip! Drink 250ml of water to stay on track.")
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setAutoCancel(true)
+                    .setContentIntent(contentPendingIntent)
+                    .addAction(
+                        android.R.drawable.checkbox_on_background,
+                        "Done (250ml)",
+                        donePendingIntent
+                    )
+                    .addAction(
+                        android.R.drawable.ic_delete,
+                        "Not Done",
+                        notDonePendingIntent
+                    )
+                    .build()
+
+                try {
+                    notificationManager.notify(reminderId.toInt(), notification)
+                } catch (e: SecurityException) {
+                    // Notification permission missing
+                }
+
+                dao.updateReminderEvent(event.copy(firedTime = System.currentTimeMillis()))
+            } finally {
+                pendingResult.finish()
             }
         }
     }
