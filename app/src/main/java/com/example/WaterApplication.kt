@@ -21,16 +21,5 @@ class WaterApplication : Application() {
             ExistingPeriodicWorkPolicy.KEEP,
             adaptiveWorkRequest
         )
-        
-        // Enqueue DynamicReminderWorker to adjust reminders periodically (not more frequent than 15 mins)
-        val dynamicReminderRequest = PeriodicWorkRequestBuilder<com.example.worker.DynamicReminderWorker>(
-            15, TimeUnit.MINUTES
-        ).build()
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "DynamicReminderWorker",
-            ExistingPeriodicWorkPolicy.KEEP,
-            dynamicReminderRequest
-        )
     }
 }
