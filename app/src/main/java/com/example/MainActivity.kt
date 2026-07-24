@@ -103,6 +103,8 @@ class MainActivity : ComponentActivity() {
                 val fallbackCheckoutTime by viewModel.fallbackCheckoutTime.collectAsState()
                 val healthConnectSyncEnabled by viewModel.healthConnectSyncEnabled.collectAsState()
 
+                val customQuickAmounts by viewModel.customQuickAmounts.collectAsState()
+
                 var currentTab by remember { mutableStateOf(MainTab.TODAY) }
                 var showEditingProfileOnboarding by remember { mutableStateOf(false) }
 
@@ -192,9 +194,12 @@ class MainActivity : ComponentActivity() {
                                     todayRecord = todayRecord,
                                     waterLogs = waterLogs,
                                     streakDays = streakDays,
+                                    customQuickAmounts = customQuickAmounts,
                                     onCheckIn = { viewModel.checkInToday() },
                                     onCheckOut = { viewModel.checkOutToday() },
                                     onLogQuickWater = { amountMl -> viewModel.logWater(amountMl) },
+                                    onAddCustomQuickAmount = { amountMl -> viewModel.addCustomQuickAmount(amountMl) },
+                                    onRemoveCustomQuickAmount = { amountMl -> viewModel.removeCustomQuickAmount(amountMl) },
                                     onOpenCustomLogSheet = { showLogWaterSheet = true },
                                     onDeleteLog = { log -> viewModel.deleteWaterLog(log) },
                                     onOpenSettings = { currentTab = MainTab.SETTINGS }
@@ -237,6 +242,10 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onLogWater = { amountMl ->
                                     viewModel.logWater(amountMl)
+                                },
+                                customQuickAmountsCount = customQuickAmounts.size,
+                                onAddCustomQuickAmount = { amountMl ->
+                                    viewModel.addCustomQuickAmount(amountMl)
                                 },
                                 sheetState = sheetState
                             )

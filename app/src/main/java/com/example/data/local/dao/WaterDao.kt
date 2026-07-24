@@ -87,6 +87,16 @@ interface WaterDao {
     @Query("SELECT * FROM water_log_entry WHERE dayRecordId = :dayRecordId ORDER BY timestamp DESC")
     fun getWaterLogsForDayFlow(dayRecordId: Long): Flow<List<WaterLogEntry>>
 
+    @Query("""
+        SELECT amountMl 
+        FROM water_log_entry 
+        WHERE amountMl > 0 
+        GROUP BY amountMl 
+        ORDER BY MAX(timestamp) DESC 
+        LIMIT 2
+    """)
+    suspend fun getRecentWaterAmounts(): List<Int>
+
     @Query("SELECT externalRecordId FROM water_log_entry WHERE externalRecordId IN (:ids) AND externalRecordId IS NOT NULL")
     suspend fun getExistingExternalRecordIds(ids: List<String>): List<String>
 

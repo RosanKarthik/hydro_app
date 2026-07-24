@@ -478,4 +478,33 @@ class WaterRepositoryImpl(
             waterDao.logWaterAndIncrementTotal(entry)
         }
     }
+
+    override fun getCustomQuickAmountsFlow(): Flow<List<Int>> {
+        val flow = dataStore?.data
+        return if (flow != null) {
+            flow.map { preferences ->
+                preferences[PreferencesKeys.CUSTOM_QUICK_AMOUNTS]
+                    ?.mapNotNull { it.toIntOrNull() }
+                    ?.sorted() ?: emptyList()
+            }
+        } else {
+            kotlinx.coroutines.flow.flowOf(emptyList())
+        }
+    }
+
+    override suspend fun addCustomQuickAmount(amountMl: Int) {
+        dataStore?.edit { preferences ->
+            val current = preferences[PreferencesKeys.CUSTOM_QUICK_AMOUNTS] ?: emptySet()
+            if (current.size < 3) {
+                preferences[PreferencesKeys.CUSTOM_QUICK_AMOUNTS] = current + amountMl.toString()
+            }
+        }
+    }
+
+    override suspend fun removeCustomQuickAmount(amountMl: Int) {
+        dataStore?.edit { preferences ->
+            val current = preferences[PreferencesKeys.CUSTOM_QUICK_AMOUNTS] ?: emptySet()
+            preferences[PreferencesKeys.CUSTOM_QUICK_AMOUNTS] = current - amountMl.toString()
+        }
+    }
 }

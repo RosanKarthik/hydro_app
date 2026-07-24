@@ -79,20 +79,40 @@ class WaterReminderReceiver : BroadcastReceiver() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
-                // Quick Action 1: Done
-                val doneIntent = Intent(context, WaterReminderReceiver::class.java).apply {
+                val recentAmounts = dao.getRecentWaterAmounts()
+                val amount1 = recentAmounts.getOrNull(0) ?: 250
+                var amount2 = recentAmounts.getOrNull(1) ?: 500
+                if (amount1 == amount2) {
+                    amount2 = if (amount1 == 250) 500 else 250
+                }
+
+                // Quick Action 1: Done Amount 1
+                val doneIntent1 = Intent(context, WaterReminderReceiver::class.java).apply {
                     action = ACTION_DONE
                     putExtra(EXTRA_REMINDER_ID, reminderId)
-                    putExtra(EXTRA_DEFAULT_ML, 250)
+                    putExtra(EXTRA_DEFAULT_ML, amount1)
                 }
-                val donePendingIntent = PendingIntent.getBroadcast(
+                val donePendingIntent1 = PendingIntent.getBroadcast(
                     context,
                     (reminderId * 10 + 1).toInt(),
-                    doneIntent,
+                    doneIntent1,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
-                // Quick Action 2: Not Done
+                // Quick Action 2: Done Amount 2
+                val doneIntent2 = Intent(context, WaterReminderReceiver::class.java).apply {
+                    action = ACTION_DONE
+                    putExtra(EXTRA_REMINDER_ID, reminderId)
+                    putExtra(EXTRA_DEFAULT_ML, amount2)
+                }
+                val donePendingIntent2 = PendingIntent.getBroadcast(
+                    context,
+                    (reminderId * 10 + 3).toInt(),
+                    doneIntent2,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // Quick Action 3: Not Done
                 val notDoneIntent = Intent(context, WaterReminderReceiver::class.java).apply {
                     action = ACTION_NOT_DONE
                     putExtra(EXTRA_REMINDER_ID, reminderId)
@@ -107,14 +127,19 @@ class WaterReminderReceiver : BroadcastReceiver() {
                 val notification = NotificationCompat.Builder(context, CHANNEL_ID)
                     .setSmallIcon(android.R.drawable.ic_menu_compass) // fallback system icon
                     .setContentTitle("Hydration Check")
-                    .setContentText("Time for a sip! Drink 250ml of water to stay on track.")
+                    .setContentText("Time for a sip! Keep up the good work.")
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
                     .setAutoCancel(true)
                     .setContentIntent(contentPendingIntent)
                     .addAction(
                         android.R.drawable.checkbox_on_background,
-                        "Done (250ml)",
-                        donePendingIntent
+                        "Done (${amount1}ml)",
+                        donePendingIntent1
+                    )
+                    .addAction(
+                        android.R.drawable.checkbox_on_background,
+                        "Done (${amount2}ml)",
+                        donePendingIntent2
                     )
                     .addAction(
                         android.R.drawable.ic_delete,

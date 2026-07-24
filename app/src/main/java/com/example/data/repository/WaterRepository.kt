@@ -93,4 +93,8 @@ interface WaterRepository {
     fun getHealthConnectSyncEnabledFlow(): Flow<Boolean>
     suspend fun setHealthConnectSyncEnabled(isEnabled: Boolean)
     suspend fun syncDailyExternalHydration()
+
+    fun getCustomQuickAmountsFlow(): Flow<List<Int>>
+    suspend fun addCustomQuickAmount(amountMl: Int)
+    suspend fun removeCustomQuickAmount(amountMl: Int)
 }

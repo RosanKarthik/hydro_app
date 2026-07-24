@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocalDrink
 import androidx.compose.material.icons.filled.LocalFireDepartment
@@ -65,9 +66,12 @@ fun HomeScreen(
     todayRecord: DayRecord?,
     waterLogs: List<WaterLogEntry>,
     streakDays: Int,
+    customQuickAmounts: List<Int>,
     onCheckIn: () -> Unit,
     onCheckOut: () -> Unit,
     onLogQuickWater: (amountMl: Int) -> Unit,
+    onAddCustomQuickAmount: (amountMl: Int) -> Unit,
+    onRemoveCustomQuickAmount: (amountMl: Int) -> Unit,
     onOpenCustomLogSheet: () -> Unit,
     onDeleteLog: (WaterLogEntry) -> Unit,
     onOpenSettings: () -> Unit,
@@ -359,51 +363,69 @@ fun HomeScreen(
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
-                    Row(
+                    val allItems = mutableListOf<Any>()
+                    allItems.add(250)
+                    allItems.add(500)
+                    allItems.addAll(customQuickAmounts)
+                    allItems.add("CUSTOM")
+
+                    val rows = allItems.chunked(3)
+
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        QuickAddCard(
-                            amountMl = 250,
-                            icon = Icons.Default.LocalDrink,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onLogQuickWater(250) }
-                        )
-
-                        QuickAddCard(
-                            amountMl = 500,
-                            icon = Icons.Default.LocalDrink,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onLogQuickWater(500) }
-                        )
-
-                        Card(
-                            onClick = onOpenCustomLogSheet,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(80.dp)
-                                .testTag("quick_add_custom_card"),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                        rows.forEach { rowItems ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.AddCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Custom",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                )
+                                rowItems.forEach { item ->
+                                    if (item is Int) {
+                                        val isCustom = item !in listOf(250, 500)
+                                        QuickAddCard(
+                                            amountMl = item,
+                                            icon = Icons.Default.LocalDrink,
+                                            modifier = Modifier.weight(1f),
+                                            isCustom = isCustom,
+                                            onRemove = { onRemoveCustomQuickAmount(item) },
+                                            onClick = { onLogQuickWater(item) }
+                                        )
+                                    } else {
+                                        Card(
+                                            onClick = onOpenCustomLogSheet,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(80.dp)
+                                                .testTag("quick_add_custom_card"),
+                                            shape = RoundedCornerShape(20.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.fillMaxSize(),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.AddCircle,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "Custom",
+                                                    style = MaterialTheme.typography.labelMedium.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onPrimary
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                repeat(3 - rowItems.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
                             }
                         }
                     }
@@ -471,6 +493,8 @@ private fun QuickAddCard(
     amountMl: Int,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier = Modifier,
+    isCustom: Boolean = false,
+    onRemove: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
     Card(
@@ -482,21 +506,39 @@ private fun QuickAddCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${amountMl}ml",
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-            )
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${amountMl}ml",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+            if (isCustom && onRemove != null) {
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(24.dp)
+                        .padding(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove preset",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
         }
     }
 }

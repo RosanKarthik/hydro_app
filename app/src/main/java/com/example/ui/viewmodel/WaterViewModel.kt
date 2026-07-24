@@ -99,12 +99,31 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
             initialValue = "23:59"
         )
 
+    val customQuickAmounts: StateFlow<List<Int>> = repository.getCustomQuickAmountsFlow()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     val healthConnectSyncEnabled: StateFlow<Boolean> = repository.getHealthConnectSyncEnabledFlow()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = false
         )
+
+    fun addCustomQuickAmount(amountMl: Int) {
+        viewModelScope.launch {
+            repository.addCustomQuickAmount(amountMl)
+        }
+    }
+
+    fun removeCustomQuickAmount(amountMl: Int) {
+        viewModelScope.launch {
+            repository.removeCustomQuickAmount(amountMl)
+        }
+    }
 
     fun calculateBaseTargetMl(weightKg: Float, activityLevel: ActivityLevel, climate: Climate): Int {
         return repository.calculateBaseTargetMl(weightKg, activityLevel, climate)
