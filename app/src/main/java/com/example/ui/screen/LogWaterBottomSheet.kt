@@ -129,30 +129,7 @@ fun LogWaterBottomSheet(
                 shape = RoundedCornerShape(16.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            val currentAmount = customAmountText.toIntOrNull() ?: 0
-            if (currentAmount > 0 && currentAmount !in listOf(150, 250, 500) && customQuickAmountsCount < 3) {
-                OutlinedButton(
-                    onClick = {
-                        onAddCustomQuickAmount(currentAmount)
-                        onLogWater(currentAmount)
-                        onDismiss()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("save_custom_preset_button"),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                    Text(
-                        text = "Save ${currentAmount}ml as Preset & Log",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
+            Spacer(modifier = Modifier.height(24.dp))
 
             Button(
                 onClick = {

@@ -363,13 +363,28 @@ fun HomeScreen(
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
-                    val allItems = mutableListOf<Any>()
-                    allItems.add(250)
-                    allItems.add(500)
-                    allItems.addAll(customQuickAmounts)
-                    allItems.add("CUSTOM")
+                    val showAddPresetDialog = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
-                    val rows = allItems.chunked(3)
+                    if (showAddPresetDialog.value) {
+                        AddPresetDialog(
+                            onDismiss = { showAddPresetDialog.value = false },
+                            onSave = { amount -> onAddCustomQuickAmount(amount) }
+                        )
+                    }
+
+                    val row1Items = listOf(
+                        250,
+                        500,
+                        customQuickAmounts.getOrNull(0)
+                    )
+
+                    val row2Items = listOf(
+                        customQuickAmounts.getOrNull(1),
+                        customQuickAmounts.getOrNull(2),
+                        "CUSTOM_LOG"
+                    )
+
+                    val rows = listOf(row1Items, row2Items)
 
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -391,7 +406,12 @@ fun HomeScreen(
                                             onRemove = { onRemoveCustomQuickAmount(item) },
                                             onClick = { onLogQuickWater(item) }
                                         )
-                                    } else {
+                                    } else if (item == null) {
+                                        AddPresetCard(
+                                            modifier = Modifier.weight(1f),
+                                            onClick = { showAddPresetDialog.value = true }
+                                        )
+                                    } else if (item == "CUSTOM_LOG") {
                                         Card(
                                             onClick = onOpenCustomLogSheet,
                                             modifier = Modifier
@@ -422,9 +442,6 @@ fun HomeScreen(
                                             }
                                         }
                                     }
-                                }
-                                repeat(3 - rowItems.size) {
-                                    Spacer(modifier = Modifier.weight(1f))
                                 }
                             }
                         }
@@ -603,6 +620,81 @@ private fun WaterLogRow(
                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun AddPresetDialog(
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit
+) {
+    val text = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Custom Preset") },
+        text = {
+            androidx.compose.material3.OutlinedTextField(
+                value = text.value,
+                onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) text.value = it },
+                label = { Text("Amount (ml)") },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(
+                onClick = {
+                    val amount = text.value.toIntOrNull()
+                    if (amount != null && amount > 0) {
+                        onSave(amount)
+                        onDismiss()
+                    }
+                },
+                enabled = text.value.isNotEmpty() && text.value.toIntOrNull() != null && text.value.toInt() > 0
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddPresetCard(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier.height(80.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add Preset",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Add",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
         }
     }
 }
