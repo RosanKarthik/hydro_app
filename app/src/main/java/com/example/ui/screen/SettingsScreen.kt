@@ -207,6 +207,9 @@ fun SettingsScreen(
                         modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
                     )
 
+                    val targetInt = customTargetInput.toIntOrNull()
+                    val isTargetValid = targetInt != null && targetInt in 1000..6000
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -216,6 +219,12 @@ fun SettingsScreen(
                             value = customTargetInput,
                             onValueChange = { customTargetInput = it.filter { c -> c.isDigit() }.take(5) },
                             label = { Text("Target (ml)") },
+                            isError = customTargetInput.isNotEmpty() && !isTargetValid,
+                            supportingText = {
+                                if (customTargetInput.isNotEmpty() && !isTargetValid) {
+                                    Text("Enter 1000 - 6000 ml", color = MaterialTheme.colorScheme.error)
+                                }
+                            },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier
                                 .weight(1f)
@@ -225,9 +234,11 @@ fun SettingsScreen(
 
                         Button(
                             onClick = {
-                                val target = customTargetInput.toIntOrNull() ?: 2500
-                                onUpdateTarget(target)
+                                if (targetInt != null && isTargetValid) {
+                                    onUpdateTarget(targetInt)
+                                }
                             },
+                            enabled = isTargetValid,
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.height(56.dp)
                         ) {
@@ -276,6 +287,9 @@ fun SettingsScreen(
                         modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
                     )
 
+                    val timeRegex = remember { Regex("^([01]?[0-9]|2[0-3]):[0-5][0-9]$") }
+                    val isCheckoutTimeValid = timeRegex.matches(checkoutTimeInput.trim())
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -285,6 +299,15 @@ fun SettingsScreen(
                             value = checkoutTimeInput,
                             onValueChange = { checkoutTimeInput = it.take(5) },
                             label = { Text("Checkout (HH:MM)") },
+                            placeholder = { Text("23:59") },
+                            isError = checkoutTimeInput.isNotEmpty() && !isCheckoutTimeValid,
+                            supportingText = {
+                                if (checkoutTimeInput.isNotEmpty() && !isCheckoutTimeValid) {
+                                    Text("Use 24h format, e.g. 23:30", color = MaterialTheme.colorScheme.error)
+                                } else {
+                                    Text("24-hour bedtime format")
+                                }
+                            },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                             modifier = Modifier
                                 .weight(1f)
@@ -294,8 +317,14 @@ fun SettingsScreen(
 
                         Button(
                             onClick = {
-                                onUpdateFallbackCheckoutTime(checkoutTimeInput)
+                                if (isCheckoutTimeValid) {
+                                    val parts = checkoutTimeInput.trim().split(":")
+                                    val formatted = String.format("%02d:%02d", parts[0].toInt(), parts[1].toInt())
+                                    checkoutTimeInput = formatted
+                                    onUpdateFallbackCheckoutTime(formatted)
+                                }
                             },
+                            enabled = isCheckoutTimeValid,
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.height(56.dp)
                         ) {

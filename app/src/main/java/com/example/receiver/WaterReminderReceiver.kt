@@ -10,15 +10,19 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.MainActivity
+import com.example.R
 import com.example.alarm.WaterAlarmScheduler
 import com.example.data.local.database.WaterDatabase
+import com.example.data.local.datastore.dataStore
 import com.example.data.local.entity.LogSource
 import com.example.data.local.entity.ReminderResponse
 import com.example.data.repository.WaterRepositoryImpl
 import com.example.health.HealthConnectManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 /**
  * BroadcastReceiver responsible for handling fired reminder alarms and notification quick actions (Done / Not Done).
@@ -125,7 +129,7 @@ class WaterReminderReceiver : BroadcastReceiver() {
                 )
 
                 val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.ic_menu_compass) // fallback system icon
+                    .setSmallIcon(R.drawable.ic_launcher_foreground)
                     .setContentTitle("Hydration Check")
                     .setContentText("Time for a sip! Keep up the good work.")
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -171,7 +175,12 @@ class WaterReminderReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val db = WaterDatabase.getInstance(context)
-                val repository = WaterRepositoryImpl(db.waterDao(), null, context, HealthConnectManager(context))
+                val repository = WaterRepositoryImpl(
+                    waterDao = db.waterDao(),
+                    dataStore = context.dataStore,
+                    context = context,
+                    healthConnectManager = HealthConnectManager(context)
+                )
                 val event = db.waterDao().getReminderEventById(reminderId)
 
                 if (event != null) {
@@ -182,9 +191,9 @@ class WaterReminderReceiver : BroadcastReceiver() {
                         reminderEventId = reminderId
                     )
 
-                    // Perform even-spacing recalculation
+                    // Perform even-spacing recalculation with accurate bedtime
                     val now = System.currentTimeMillis()
-                    val estimatedCheckout = now + (4 * 60 * 60 * 1000) // Default 4 hours or end of day
+                    val estimatedCheckout = getEstimatedCheckoutEpoch(repository, now)
                     val scheduledReminders = repository.recalculateEvenSpacedReminders(
                         dayRecordId = event.dayRecordId,
                         currentTimeEpoch = now,
@@ -216,15 +225,20 @@ class WaterReminderReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val db = WaterDatabase.getInstance(context)
-                val repository = WaterRepositoryImpl(db.waterDao(), null, context, HealthConnectManager(context))
+                val repository = WaterRepositoryImpl(
+                    waterDao = db.waterDao(),
+                    dataStore = context.dataStore,
+                    context = context,
+                    healthConnectManager = HealthConnectManager(context)
+                )
                 val event = db.waterDao().getReminderEventById(reminderId)
 
                 if (event != null) {
                     repository.updateReminderResponse(reminderId, ReminderResponse.NOT_DONE)
 
-                    // Recalculate remaining schedule
+                    // Recalculate remaining schedule with accurate bedtime
                     val now = System.currentTimeMillis()
-                    val estimatedCheckout = now + (4 * 60 * 60 * 1000)
+                    val estimatedCheckout = getEstimatedCheckoutEpoch(repository, now)
                     val scheduledReminders = repository.recalculateEvenSpacedReminders(
                         dayRecordId = event.dayRecordId,
                         currentTimeEpoch = now,
@@ -243,6 +257,24 @@ class WaterReminderReceiver : BroadcastReceiver() {
                 pendingResult.finish()
             }
         }
+    }
+
+    private suspend fun getEstimatedCheckoutEpoch(repository: WaterRepositoryImpl, now: Long): Long {
+        val checkoutTimeStr = repository.getFallbackCheckoutTimeFlow().first()
+        val parts = checkoutTimeStr.split(":")
+        val hour = parts.getOrNull(0)?.toIntOrNull() ?: 23
+        val minute = parts.getOrNull(1)?.toIntOrNull() ?: 59
+
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        if (!cal.timeInMillis.let { it > now }) {
+            cal.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        return cal.timeInMillis
     }
 
     private fun createNotificationChannel(context: Context) {

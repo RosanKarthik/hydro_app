@@ -45,6 +45,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -367,21 +370,31 @@ fun HomeScreen(
 
                     if (showAddPresetDialog.value) {
                         AddPresetDialog(
+                            existingAmounts = customQuickAmounts,
                             onDismiss = { showAddPresetDialog.value = false },
                             onSave = { amount -> onAddCustomQuickAmount(amount) }
                         )
                     }
 
+                    // 6 slots total: 2 fixed + 3 custom slots + 1 custom log action
+                    val customSlots = (0..2).map { index ->
+                        when {
+                            index < customQuickAmounts.size -> QuickSlotItem.Preset(customQuickAmounts[index], isCustom = true)
+                            index == customQuickAmounts.size -> QuickSlotItem.AddAction
+                            else -> QuickSlotItem.EmptySlot(index + 1)
+                        }
+                    }
+
                     val row1Items = listOf(
-                        250,
-                        500,
-                        customQuickAmounts.getOrNull(0)
+                        QuickSlotItem.Preset(250, isCustom = false),
+                        QuickSlotItem.Preset(500, isCustom = false),
+                        customSlots[0]
                     )
 
                     val row2Items = listOf(
-                        customQuickAmounts.getOrNull(1),
-                        customQuickAmounts.getOrNull(2),
-                        "CUSTOM_LOG"
+                        customSlots[1],
+                        customSlots[2],
+                        QuickSlotItem.CustomLogAction
                     )
 
                     val rows = listOf(row1Items, row2Items)
@@ -396,49 +409,60 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 rowItems.forEach { item ->
-                                    if (item is Int) {
-                                        val isCustom = item !in listOf(250, 500)
-                                        QuickAddCard(
-                                            amountMl = item,
-                                            icon = Icons.Default.LocalDrink,
-                                            modifier = Modifier.weight(1f),
-                                            isCustom = isCustom,
-                                            onRemove = { onRemoveCustomQuickAmount(item) },
-                                            onClick = { onLogQuickWater(item) }
-                                        )
-                                    } else if (item == null) {
-                                        AddPresetCard(
-                                            modifier = Modifier.weight(1f),
-                                            onClick = { showAddPresetDialog.value = true }
-                                        )
-                                    } else if (item == "CUSTOM_LOG") {
-                                        Card(
-                                            onClick = onOpenCustomLogSheet,
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(80.dp)
-                                                .testTag("quick_add_custom_card"),
-                                            shape = RoundedCornerShape(20.dp),
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
-                                        ) {
-                                            Column(
-                                                modifier = Modifier.fillMaxSize(),
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.Center
+                                    when (item) {
+                                        is QuickSlotItem.Preset -> {
+                                            QuickAddCard(
+                                                amountMl = item.amountMl,
+                                                icon = Icons.Default.LocalDrink,
+                                                modifier = Modifier.weight(1f),
+                                                isCustom = item.isCustom,
+                                                onRemove = if (item.isCustom) {
+                                                    { onRemoveCustomQuickAmount(item.amountMl) }
+                                                } else null,
+                                                onClick = { onLogQuickWater(item.amountMl) }
+                                            )
+                                        }
+                                        is QuickSlotItem.AddAction -> {
+                                            AddPresetCard(
+                                                modifier = Modifier.weight(1f),
+                                                onClick = { showAddPresetDialog.value = true }
+                                            )
+                                        }
+                                        is QuickSlotItem.EmptySlot -> {
+                                            EmptyPresetCard(
+                                                slotNumber = item.slotNumber,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                        is QuickSlotItem.CustomLogAction -> {
+                                            Card(
+                                                onClick = onOpenCustomLogSheet,
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(80.dp)
+                                                    .testTag("quick_add_custom_card"),
+                                                shape = RoundedCornerShape(20.dp),
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
                                             ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.AddCircle,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onPrimary
-                                                )
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
-                                                    text = "Custom",
-                                                    style = MaterialTheme.typography.labelMedium.copy(
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.onPrimary
+                                                Column(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    verticalArrangement = Arrangement.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.AddCircle,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onPrimary
                                                     )
-                                                )
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Text(
+                                                        text = "Custom",
+                                                        style = MaterialTheme.typography.labelMedium.copy(
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onPrimary
+                                                        )
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -624,34 +648,57 @@ private fun WaterLogRow(
     }
 }
 
+sealed class QuickSlotItem {
+    data class Preset(val amountMl: Int, val isCustom: Boolean) : QuickSlotItem()
+    data object AddAction : QuickSlotItem()
+    data class EmptySlot(val slotNumber: Int) : QuickSlotItem()
+    data object CustomLogAction : QuickSlotItem()
+}
+
 @Composable
 fun AddPresetDialog(
+    existingAmounts: List<Int>,
     onDismiss: () -> Unit,
     onSave: (Int) -> Unit
 ) {
-    val text = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var text by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    val amount = text.toIntOrNull()
+    val isDuplicate = amount != null && (amount in existingAmounts || amount in listOf(250, 500))
+    val isValid = amount != null && amount in 50..5000 && !isDuplicate
+
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Custom Preset") },
         text = {
-            androidx.compose.material3.OutlinedTextField(
-                value = text.value,
-                onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) text.value = it },
-                label = { Text("Amount (ml)") },
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                singleLine = true
-            )
+            Column {
+                androidx.compose.material3.OutlinedTextField(
+                    value = text,
+                    onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) text = it },
+                    label = { Text("Amount (ml)") },
+                    supportingText = {
+                        if (isDuplicate) {
+                            Text("This amount already exists as a preset", color = MaterialTheme.colorScheme.error)
+                        } else if (text.isNotEmpty() && (amount == null || amount < 50 || amount > 5000)) {
+                            Text("Enter an amount between 50 and 5000 ml", color = MaterialTheme.colorScheme.error)
+                        } else {
+                            Text("Quick tap amount for your home screen")
+                        }
+                    },
+                    isError = isDuplicate || (text.isNotEmpty() && (amount == null || amount < 50 || amount > 5000)),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                    singleLine = true
+                )
+            }
         },
         confirmButton = {
             androidx.compose.material3.TextButton(
                 onClick = {
-                    val amount = text.value.toIntOrNull()
-                    if (amount != null && amount > 0) {
-                        onSave(amount)
+                    if (isValid) {
+                        amount?.let { onSave(it) }
                         onDismiss()
                     }
                 },
-                enabled = text.value.isNotEmpty() && text.value.toIntOrNull() != null && text.value.toInt() > 0
+                enabled = isValid
             ) {
                 Text("Save")
             }
@@ -685,14 +732,40 @@ private fun AddPresetCard(
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Add Preset",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Add",
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyPresetCard(
+    slotNumber: Int,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.height(80.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "Slot $slotNumber",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                 )
             )
         }

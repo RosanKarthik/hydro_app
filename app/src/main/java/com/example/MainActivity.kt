@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
@@ -111,10 +112,25 @@ class MainActivity : ComponentActivity() {
                 var showLogWaterSheet by remember { mutableStateOf(openQuickLogFromNotification) }
                 val sheetState = rememberModalBottomSheetState()
 
-                // Calculate streak
-                val streakDays = remember(recentHistory) {
+                // Calculate streak accurately
+                val streakDays = remember(recentHistory, todayRecord) {
+                    if (recentHistory.isEmpty()) return@remember 0
+                    
+                    val todayDate = viewModel.getTodayDateString()
                     var streak = 0
-                    for (record in recentHistory) {
+                    val firstRecord = recentHistory.firstOrNull()
+                    val isFirstRecordToday = firstRecord?.date == todayDate
+                    
+                    val historyToCheck = if (isFirstRecordToday) {
+                        if (firstRecord.totalConsumedMl >= firstRecord.targetMlForDay && firstRecord.targetMlForDay > 0) {
+                            streak++ // Today is already achieved!
+                        }
+                        recentHistory.drop(1)
+                    } else {
+                        recentHistory
+                    }
+
+                    for (record in historyToCheck) {
                         if (record.totalConsumedMl >= record.targetMlForDay && record.targetMlForDay > 0) {
                             streak++
                         } else {
@@ -125,6 +141,12 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val isProfileConfigured = userProfile != null
+
+                if (isProfileConfigured && showEditingProfileOnboarding) {
+                    BackHandler {
+                        showEditingProfileOnboarding = false
+                    }
+                }
 
                 if (!isProfileConfigured || showEditingProfileOnboarding) {
                     OnboardingScreen(
@@ -138,6 +160,12 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
+                    if (currentTab != MainTab.TODAY) {
+                        BackHandler {
+                            currentTab = MainTab.TODAY
+                        }
+                    }
+
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         bottomBar = {

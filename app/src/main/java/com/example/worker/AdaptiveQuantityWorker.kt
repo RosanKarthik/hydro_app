@@ -100,7 +100,7 @@ class AdaptiveQuantityWorker(
         )
 
         val notification = NotificationCompat.Builder(appContext, WaterReminderReceiver.CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setSmallIcon(com.example.R.drawable.ic_launcher_foreground)
             .setContentTitle("Hydration Goal Check")
             .setContentText("You've been under your goal most days — lower your target, or get more reminders?")
             .setStyle(NotificationCompat.BigTextStyle().bigText("You've been under your goal most days — lower your target, or get more reminders?"))

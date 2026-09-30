@@ -442,7 +442,7 @@ class WaterRepositoryImpl(
 
     override suspend fun syncDailyExternalHydration() {
         val syncEnabled = getHealthConnectSyncEnabledFlow().first()
-        if (!syncEnabled || healthConnectManager == null) return
+        if (!syncEnabled) return
 
         val until = Instant.now()
         val since = until.minus(48, ChronoUnit.HOURS)

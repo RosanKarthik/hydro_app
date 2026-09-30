@@ -33,7 +33,11 @@ class GreetingScreenshotTest {
         .setMinimumLoggingLevel(android.util.Log.DEBUG)
         .setExecutor(SynchronousExecutor())
         .build()
-    WorkManagerTestInitHelper.initializeTestWorkManager(context, config)
+    try {
+      WorkManagerTestInitHelper.initializeTestWorkManager(context, config)
+    } catch (_: IllegalStateException) {
+      // Already initialized
+    }
   }
 
   @Test

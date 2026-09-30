@@ -8,6 +8,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.alarm.WaterAlarmScheduler
 import com.example.data.local.database.WaterDatabase
+import com.example.data.local.datastore.dataStore
 import com.example.data.repository.WaterRepositoryImpl
 import com.example.health.HealthConnectManager
 import java.text.SimpleDateFormat
@@ -27,7 +28,12 @@ class AutoCheckoutWorker(
 
     override suspend fun doWork(): Result {
         val db = WaterDatabase.getInstance(applicationContext)
-        val repository = WaterRepositoryImpl(db.waterDao(), null, applicationContext, HealthConnectManager(applicationContext))
+        val repository = WaterRepositoryImpl(
+            waterDao = db.waterDao(),
+            dataStore = applicationContext.dataStore,
+            context = applicationContext,
+            healthConnectManager = HealthConnectManager(applicationContext)
+        )
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         val todayStr = dateFormat.format(Calendar.getInstance().time)
@@ -49,6 +55,9 @@ class AutoCheckoutWorker(
             )
         }
 
+        // Reschedule for next day's auto-checkout
+        scheduleDailyAutoCheckout(applicationContext)
+
         return Result.success()
     }
 
@@ -67,11 +76,11 @@ class AutoCheckoutWorker(
                 set(Calendar.MILLISECOND, 0)
             }
 
-            if (now.after(targetTime)) {
+            if (!now.before(targetTime)) {
                 targetTime.add(Calendar.DAY_OF_YEAR, 1)
             }
 
-            val initialDelayMillis = targetTime.timeInMillis - now.timeInMillis
+            val initialDelayMillis = (targetTime.timeInMillis - now.timeInMillis).coerceAtLeast(1000L)
 
             val workRequest = OneTimeWorkRequestBuilder<AutoCheckoutWorker>()
                 .setInitialDelay(initialDelayMillis, TimeUnit.MILLISECONDS)

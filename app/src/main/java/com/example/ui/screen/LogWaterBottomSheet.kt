@@ -129,12 +129,37 @@ fun LogWaterBottomSheet(
                 shape = RoundedCornerShape(16.dp)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            var saveAsPreset by remember { mutableStateOf(false) }
+
+            if (customQuickAmountsCount < 3) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = saveAsPreset,
+                        onCheckedChange = { saveAsPreset = it }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Save as quick add preset (${3 - customQuickAmountsCount} slots remaining)",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = {
                     val amount = customAmountText.toIntOrNull() ?: 250
                     if (amount > 0) {
+                        if (saveAsPreset && customQuickAmountsCount < 3) {
+                            onAddCustomQuickAmount(amount)
+                        }
                         onLogWater(amount)
                         onDismiss()
                     }

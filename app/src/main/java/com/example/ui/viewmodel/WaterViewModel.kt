@@ -231,11 +231,12 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
             set(Calendar.HOUR_OF_DAY, hour)
             set(Calendar.MINUTE, minute)
             set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
         }
-        var estCheckoutEpoch = cal.timeInMillis
-        if (estCheckoutEpoch <= now) {
-            estCheckoutEpoch = now + (2 * 60 * 60 * 1000) // Fallback +2 hrs
+        if (!cal.timeInMillis.let { it > now }) {
+            cal.add(Calendar.DAY_OF_YEAR, 1)
         }
+        val estCheckoutEpoch = cal.timeInMillis
 
         val scheduledReminders = repository.recalculateEvenSpacedReminders(
             dayRecordId = dayRecordId,
